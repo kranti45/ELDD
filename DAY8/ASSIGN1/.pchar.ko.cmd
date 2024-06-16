@@ -1,1 +1,0 @@
-cmd_/home/sunbeam/ELDD/ELDD/ASSIGN1/pchar.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/sunbeam/ELDD/ELDD/ASSIGN1/pchar.ko /home/sunbeam/ELDD/ELDD/ASSIGN1/pchar.o /home/sunbeam/ELDD/ELDD/ASSIGN1/pchar.mod.o;  true
