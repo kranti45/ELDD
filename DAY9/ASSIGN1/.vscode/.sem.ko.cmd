@@ -1,0 +1,1 @@
+cmd_/home/sunbeam/EDD/sem/.vscode/sem.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/sunbeam/EDD/sem/.vscode/sem.ko /home/sunbeam/EDD/sem/.vscode/sem.o /home/sunbeam/EDD/sem/.vscode/sem.mod.o;  true
