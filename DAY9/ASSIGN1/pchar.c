@@ -1,3 +1,6 @@
+//	Q1. In pchar driver, use semaphore to ensure that only one process can perfrom IO operations on device. If device is opened by one process, it should not be accessible to another process.
+
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
@@ -7,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 #include <linux/sched.h>
+ 
 
 static int pchar_open(struct inode *, struct file *);
 static int pchar_close(struct inode *, struct file *);
@@ -20,7 +24,7 @@ struct pchar_device {
     struct kfifo buf;
     dev_t devno;
     struct cdev cdev;
-    struct semaphore lock;
+    struct semaphore my_semaphore;
 };
 
 static int major;
@@ -101,11 +105,10 @@ static __init int pchar_init(void) {
     printk(KERN_INFO "%s: cdev_add() added devices in kernel db.\n", THIS_MODULE->name);
 
     for(i=0; i<devcnt; i++)
-        sema_init(&devices[i].lock,devcnt);
+        sema_init(&devices[i].my_semaphore,1);
     printk(KERN_INFO "%s: sema_init() initialized semaphore lock for all devices.\n", THIS_MODULE->name);
-        
 
-    return 0;
+	return 0;
 cdev_add_failed:
     for(i=i-1; i>=0; i--)
         cdev_del(&devices[i].cdev);
@@ -132,9 +135,7 @@ static __exit void pchar_exit(void) {
     int i;
     dev_t devno;
     printk(KERN_INFO "%s: pchar_exit() called.\n", THIS_MODULE->name);
-    for(i=devcnt-1; i>=0; i--)
-       // up(&devices[i].lock);
-    //printk(KERN_INFO "%s: sema_destroy() destroyed semphore locks for all devices.\n", THIS_MODULE->name);
+
     for(i=devcnt-1; i>=0; i--)
         cdev_del(&devices[i].cdev);
     printk(KERN_INFO "%s: cdev_del() removed devices from kernel db.\n", THIS_MODULE->name);
@@ -156,29 +157,33 @@ static __exit void pchar_exit(void) {
 
 
 static int pchar_open(struct inode *pinode, struct file *pfile) {
+   
+    struct pchar_device *pdev =  container_of(pinode->i_cdev, struct pchar_device, cdev);
     printk(KERN_INFO "%s: pchar_open() called.\n", THIS_MODULE->name);
-    struct pchar_device *pdev =
-    container_of(pinode->i_cdev, struct pchar_device, cdev);
-    pfile->private_data = pdev;
+	pfile->private_data = pdev;
     printk(KERN_INFO "%s: locking device pchar%d in process %d (%s).\n", THIS_MODULE->name, MINOR(pdev->devno), get_current()->pid, get_current()->comm);
-    up(&pdev->lock);
+    down(&pdev->my_semaphore);
     printk(KERN_INFO "%s: device pchar%d lock is acquired by process %d (%s).\n", THIS_MODULE->name, MINOR(pdev->devno), get_current()->pid, get_current()->comm);
     return 0;
 }
 
 static int pchar_close(struct inode *pinode, struct file *pfile) {
-    printk(KERN_INFO "%s: pchar_close() called.\n", THIS_MODULE->name);
+    
     struct pchar_device *pdev = (struct pchar_device *)pfile->private_data;
-    down(&pdev->lock);
+	printk(KERN_INFO "%s: pchar_close() called.\n", THIS_MODULE->name);
+    up(&pdev->my_semaphore);
+    
     printk(KERN_INFO "%s: device pchar%d unlock is acquired by process %d (%s).\n", THIS_MODULE->name, MINOR(pdev->devno), get_current()->pid, get_current()->comm);
     return 0;
 }
 
 static ssize_t pchar_read(struct file *pfile, char *ubuf, size_t size, loff_t *poffset) {
     int nbytes=0, ret;
+   
+	struct pchar_device *pdev = (struct pchar_device *)pfile->private_data;
     printk(KERN_INFO "%s: pchar_read() called.\n", THIS_MODULE->name);
-    struct pchar_device *pdev = (struct pchar_device *)pfile->private_data;
-    ret = kfifo_to_user(&pdev->buf, ubuf, size, &nbytes);
+
+   ret = kfifo_to_user(&pdev->buf, ubuf, size, &nbytes);
     if(ret < 0) {
         printk(KERN_ERR "%s: pchar_read() failed to copy data from kernel space using kfifo_to_user().\n", THIS_MODULE->name);
         return ret;     
@@ -189,9 +194,11 @@ static ssize_t pchar_read(struct file *pfile, char *ubuf, size_t size, loff_t *p
 
 static ssize_t pchar_write(struct file *pfile, const char *ubuf, size_t size, loff_t *poffset) {
     int nbytes=size, ret;
-    printk(KERN_INFO "%s: pchar_write() called.\n", THIS_MODULE->name);
+   
     struct pchar_device *pdev = (struct pchar_device *)pfile->private_data;
-    ret = kfifo_from_user(&pdev->buf, ubuf, size, &nbytes);
+    printk(KERN_INFO "%s: pchar_write() called.\n", THIS_MODULE->name);
+
+	ret = kfifo_from_user(&pdev->buf, ubuf, size, &nbytes);
     if(ret < 0) {
         printk(KERN_ERR "%s: pchar_write() failed to copy data in kernel space using kfifo_from_user().\n", THIS_MODULE->name);
         return ret;     
@@ -204,5 +211,6 @@ module_init(pchar_init);
 module_exit(pchar_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Nilesh Ghule <nilesh@sunbeaminfo.com>");
-MODULE_DESCRIPTION("Simple pchar driver with kfifo as device.");
+MODULE_AUTHOR("Poonam Kokitkar");
+MODULE_DESCRIPTION("Simple pchar driver with semaphore.");
+

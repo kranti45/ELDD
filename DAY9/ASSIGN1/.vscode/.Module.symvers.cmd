@@ -1,1 +1,0 @@
-cmd_/home/sunbeam/EDD/sem/.vscode/Module.symvers :=  sed 's/ko$$/o/'  /home/sunbeam/EDD/sem/.vscode/modules.order | scripts/mod/modpost -m -a    -o /home/sunbeam/EDD/sem/.vscode/Module.symvers -e -i Module.symvers -T - 
