@@ -211,6 +211,6 @@ module_init(pchar_init);
 module_exit(pchar_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Poonam Kokitkar");
+MODULE_AUTHOR("Kranti45");
 MODULE_DESCRIPTION("Simple pchar driver with semaphore.");
 
